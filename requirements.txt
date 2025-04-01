@@ -1,0 +1,7 @@
+pandas
+sklearn
+joblib
+matplotlib
+kagglehub
+seaborn
+os
