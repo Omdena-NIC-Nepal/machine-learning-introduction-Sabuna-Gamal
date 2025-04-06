@@ -39,7 +39,7 @@ def remove_outliers(df, column):
 outlier_columns = ["rm", "lstat", "crim","zn", "dis", "ptratio", "b", "medv"]
 for col in outlier_columns:
     df = remove_outliers(df, col)
-    # Apply one-hot encoding to categorical columns
+# Apply one-hot encoding to categorical columns
 
 df['chas'] = df['chas'].astype('category')
 print(df.dtypes)
