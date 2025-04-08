@@ -1,32 +1,37 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, OneHotEncoder
+from sklearn.preprocessing import StandardScaler
 from sklearn.impute import SimpleImputer
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
 
-# Load dataset
-df = pd.read_csv("../data/boston_housing.csv")
-df= pd.read_csv(file_path)
+def load_data(file_path):
+    print("Loading dataset...")
+    df = pd.read_csv(file_path)
+    print(df.info())
+    print(df.head())
+    return df
 
-# Display basic info
-print(df.info())  
-print(df.head())
-# Check for missing values
-missing_values = df.isnull().sum()
-print("Missing values per column:\n", missing_values[missing_values > 0])
+def check_missing_values(df):
+    missing_values = df.isnull().sum()
+    print("Missing values per column:\n", missing_values[missing_values > 0])
+    return missing_values
 
-# Impute missing numerical values with the median
-num_imputer = SimpleImputer(strategy="median")
-df.iloc[:, :] = num_imputer.fit_transform(df)
+def impute_missing_values(df):
+    print("Imputing missing values...")
+    num_imputer = SimpleImputer(strategy="median")
+    df.iloc[:, :] = num_imputer.fit_transform(df)
+    return df
 
-# Visualize outliers using boxplot
-plt.figure(figsize=(12, 6))
-df.boxplot(rot=45)
-plt.title("Boxplot for Outlier Detection")
-plt.show()
-# Function to remove outliers using IQR
+def visualize_outliers(df):
+    print("Visualizing outliers...")
+    plt.figure(figsize=(12, 6))
+    df.boxplot(rot=45)
+    plt.title("Boxplot for Outlier Detection")
+    plt.show()
+
 def remove_outliers(df, column):
     Q1 = df[column].quantile(0.25)
     Q3 = df[column].quantile(0.75)
@@ -35,34 +40,53 @@ def remove_outliers(df, column):
     upper_bound = Q3 + 1.5 * IQR
     return df[(df[column] >= lower_bound) & (df[column] <= upper_bound)]
 
-# Apply outlier removal on selected features
-outlier_columns = ["rm", "lstat", "crim","zn", "dis", "ptratio", "b", "medv"]
-for col in outlier_columns:
-    df = remove_outliers(df, col)
-# Apply one-hot encoding to categorical columns
+def apply_outlier_removal(df, columns):
+    for col in columns:
+        df = remove_outliers(df, col)
+    return df
 
-df['chas'] = df['chas'].astype('category')
-print(df.dtypes)
+def encode_categorical(df):
+    print("Encoding categorical variables...")
+    df['chas'] = df['chas'].astype('category')
+    df = pd.get_dummies(df, columns=['chas'], prefix='chas', drop_first=True)
+    return df
 
-df = pd.get_dummies(df, columns = ['chas'], prefix='chas', drop_first = True)
+def standardize_features(X):
+    print("Standardizing features...")
+    scaler = StandardScaler()
+    X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
+    return X_scaled
 
-display(df.head)
-#Standardization (Recommended for Linear Regression)
-scaler = StandardScaler()
-# Define features (X) and target variable (y)
-X = df.drop('medv', axis=1)
-y = df['medv']
-X_scaled = pd.DataFrame(scaler.fit_transform(X), columns=X.columns)
-display(X_scaled)
+def save_processed_data(X_train, X_test, y_train, y_test, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    X_train.to_csv(os.path.join(output_dir, "X_train.csv"), index=False)
+    X_test.to_csv(os.path.join(output_dir, "X_test.csv"), index=False)
+    y_train.to_csv(os.path.join(output_dir, "y_train.csv"), index=False)
+    y_test.to_csv(os.path.join(output_dir, "y_test.csv"), index=False)
+    print("Processed data saved.")
 
-# Split into 80% training and 20% testing
-X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+def main():
+    file_path = "../data/boston_housing.csv"
+    output_dir = "../data"
 
-# Print dataset shapes
-print(f"Training set: {X_train.shape}, Test set: {X_test.shape}")
+    df = load_data(file_path)
+    check_missing_values(df)
+    df = impute_missing_values(df)
+    visualize_outliers(df)
 
-# Save processed data
-X_train.to_csv("../data/X_train.csv", index=False)
-X_test.to_csv("../data/X_test.csv", index=False)
-y_train.to_csv("../data/y_train.csv", index=False)
-y_test.to_csv("../data/y_test.csv", index=False)
+    outlier_columns = ["rm", "lstat", "crim", "zn", "dis", "ptratio", "b", "medv"]
+    df = apply_outlier_removal(df, outlier_columns)
+
+    df = encode_categorical(df)
+
+    X = df.drop('medv', axis=1)
+    y = df['medv']
+    X_scaled = standardize_features(X)
+
+    X_train, X_test, y_train, y_test = train_test_split(X_scaled, y, test_size=0.2, random_state=42)
+
+    print(f"Training set: {X_train.shape}, Test set: {X_test.shape}")
+    save_processed_data(X_train, X_test, y_train, y_test, output_dir)
+
+if __name__ == "__main__":
+    main()
