@@ -1,120 +1,125 @@
-#Import Libraries
+# Import Libraries
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LinearRegression
+import joblib
+
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.linear_model import LinearRegression, Ridge
+from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 
-###Load the Preprocessed Dataset
+# Load the preprocessed dataset
 def read_file(filename):
-    filepath = '../Data/'+str(filename)
+    filepath = '../Data/' + str(filename)
     return pd.read_csv(filepath)
 
+# Load datasets
 X_test = read_file('X_test.csv')
 y_test = read_file('y_test.csv')
 X_train = read_file('X_train.csv')
 y_train = read_file('y_train.csv')
 
-print(len(X_test), len(X_train), len(y_test), len(y_train))
-# Initialize the model
-model = LinearRegression()
+print(f"Data Sizes -> X_train: {len(X_train)}, X_test: {len(X_test)}, y_train: {len(y_train)}, y_test: {len(y_test)}")
 
-# Train (fit) the model
-model.fit(X_train, y_train)
+### Linear Regression ###
+print("\n--- Linear Regression ---")
+linear_model = LinearRegression()
+linear_model.fit(X_train, y_train)
 
-# Print model coefficients
-print("Model Coefficients:", model.coef_)
-print("Model Intercept:", model.intercept_)
-# Make predictions on the test set
-y_pred = model.predict(X_test)
+print("Coefficients:", linear_model.coef_)
+print("Intercept:", linear_model.intercept_)
 
-# Print first five predictions
-print("Predicted Prices:", y_pred[:5])
-# Calculate Mean Squared Error (MSE)
-mse = mean_squared_error(y_test, y_pred)
+y_pred_linear = linear_model.predict(X_test)
+print("First 5 Predictions:", y_pred_linear[:5])
 
-# Calculate R-squared (R²) Score
-r2 = r2_score(y_test, y_pred)
+mse_linear = mean_squared_error(y_test, y_pred_linear)
+r2_linear = r2_score(y_test, y_pred_linear)
 
-print("Mean Squared Error:", mse)
-print("R-squared Score:", r2)
+print("Linear Regression - MSE:", mse_linear)
+print("Linear Regression - R²:", r2_linear)
 
-#Hyperparameter Tuning (Random Forest Rgressor)
-
-from sklearn.model_selection import train_test_split, GridSearchCV
-from sklearn.ensemble import RandomForestRegressor
-
-# Define Random Forest model
+### Hyperparameter Tuning: Random Forest ###
+print("\n--- Random Forest Tuning ---")
 rf_model = RandomForestRegressor(random_state=42)
-
-# Define hyperparameter grid
-param_grid = {
-    "n_estimators": [50, 100, 200],  # Number of trees
-    "max_depth": [None, 10, 20, 30],  # Maximum depth of trees
-    "min_samples_split": [2, 5, 10],  # Minimum samples to split a node
-    "min_samples_leaf": [1, 2, 4]  # Minimum samples at leaf node
+rf_param_grid = {
+    "n_estimators": [50, 100, 200],
+    "max_depth": [None, 10, 20, 30],
+    "min_samples_split": [2, 5, 10],
+    "min_samples_leaf": [1, 2, 4]
 }
 
-# Initialize GridSearchCV
 rf_grid_search = GridSearchCV(
     estimator=rf_model,
-    param_grid=param_grid,
-    cv=5,  # 5-fold cross-validation
+    param_grid=rf_param_grid,
+    cv=5,
     scoring="neg_mean_squared_error",
-    n_jobs=-1,  # Use all CPU cores
+    n_jobs=-1,
     verbose=2
 )
 
-# Fit GridSearchCV
 rf_grid_search.fit(X_train, y_train)
-
-# Print best parameters and best score
-print("Best Parameters:", rf_grid_search.best_params_)
-print("Best Score:", np.sqrt(-rf_grid_search.best_score_))  # Convert to RMSE
-
-# Evaluate on test set
 best_rf_model = rf_grid_search.best_estimator_
 y_pred_rf = best_rf_model.predict(X_test)
-rmse = np.sqrt(mean_squared_error(y_test, y_pred_rf))
+rmse_rf = np.sqrt(mean_squared_error(y_test, y_pred_rf))
 
-print("Test Set RMSE:", rmse)
+print("Best RF Params:", rf_grid_search.best_params_)
+print("RF CV RMSE:", np.sqrt(-rf_grid_search.best_score_))
+print("RF Test RMSE:", rmse_rf)
 
-#Hyperparameter Tuning (Ridge Rigresson)
-from sklearn.linear_model import Ridge
-from sklearn.model_selection import GridSearchCV
-
-# Define the Ridge Regression model
+### Hyperparameter Tuning: Ridge Regression ###
+print("\n--- Ridge Regression Tuning ---")
 ridge = Ridge()
-
-# Define hyperparameter grid for tuning (alpha values)
-param_grid = {"alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
-
-# Using GridSearchCV for exhaustive search
-ridge_grid_search = GridSearchCV(ridge, param_grid, scoring="neg_mean_squared_error", cv=5)
+ridge_param_grid = {"alpha": [0.001, 0.01, 0.1, 1, 10, 100, 1000]}
+ridge_grid_search = GridSearchCV(ridge, ridge_param_grid, scoring="neg_mean_squared_error", cv=5)
 ridge_grid_search.fit(X_train, y_train)
 
-# Best parameters and model
 best_ridge = ridge_grid_search.best_estimator_
 best_alpha = ridge_grid_search.best_params_["alpha"]
-
-# Evaluate the best model
 y_pred_ridge = best_ridge.predict(X_test)
 mse_ridge = mean_squared_error(y_test, y_pred_ridge)
 r2_ridge = r2_score(y_test, y_pred_ridge)
 
-# Print Results
-print(f"Best Alpha: {best_alpha}")
-print(f"MSE (Ridge): {mse_ridge}")
-print(f"R² Score (Ridge): {r2_ridge}")
+print("Best Alpha (Ridge):", best_alpha)
+print("Ridge - MSE:", mse_ridge)
+print("Ridge - R²:", r2_ridge)
 
+### Hyperparameter Tuning: Gradient Boosting ###
+print("\n--- Gradient Boosting Tuning ---")
+gb_model = GradientBoostingRegressor(random_state=42)
+gb_param_grid = {
+    "n_estimators": [100, 200],
+    "learning_rate": [0.01, 0.1, 0.2],
+    "max_depth": [3, 5, 7]
+}
 
-#Hyperparameter Tuning(Gradient Boosting Regressor)
+gb_grid_search = GridSearchCV(
+    estimator=gb_model,
+    param_grid=gb_param_grid,
+    cv=5,
+    scoring="neg_mean_squared_error",
+    n_jobs=-1,
+    verbose=2
+)
+gb_grid_search.fit(X_train, y_train)
+
+best_gb_model = gb_grid_search.best_estimator_
+y_pred_gb = best_gb_model.predict(X_test)
+mse_gb = mean_squared_error(y_test, y_pred_gb)
+r2_gb = r2_score(y_test, y_pred_gb)
+
+print("Best GB Params:", gb_grid_search.best_params_)
+print("GB - MSE:", mse_gb)
+print("GB - R²:", r2_gb)
+
+### Compare Models ###
+print("\n--- Model Comparison ---")
 models = {
-    'Ridge': ridge_grid_search,
+    'LinearRegression': linear_model,
     'RandomForest': rf_grid_search,
-    'GradientBoost': gb_grid_search
+    'Ridge': ridge_grid_search,
+    'GradientBoosting': gb_grid_search
 }
 
 results = []
@@ -124,13 +129,12 @@ for name, model in models.items():
         'Model': name,
         'MSE': mean_squared_error(y_test, y_pred),
         'R²': r2_score(y_test, y_pred),
-        'Best Params': model.best_params_
+        'Best Params': getattr(model, 'best_params_', 'N/A')
     })
 
 results_df = pd.DataFrame(results)
 print(results_df.sort_values('MSE'))
 
-import joblib 
-# Save the best performing model
-joblib.dump(rf_grid_search, "../data/best_model.pkl")
+# Save best model (example: Random Forest)
+joblib.dump(best_rf_model, "../data/best_model.pkl")
 print("\nSaved best model to ../data/best_model.pkl")
